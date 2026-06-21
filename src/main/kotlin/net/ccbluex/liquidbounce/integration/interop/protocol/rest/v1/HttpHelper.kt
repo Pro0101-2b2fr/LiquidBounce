@@ -33,3 +33,10 @@ suspend fun ApplicationCall.respondInputStream(
         it.transferTo(this)
     }
 }
+
+/**
+ * Extract a required integer path parameter or respond with 403 Forbidden
+ */
+suspend fun ApplicationCall.requireId(parameter: String = "id"): Int {
+    return parameters[parameter]?.toIntOrNull() ?: forbidden("Invalid $parameter")
+}
