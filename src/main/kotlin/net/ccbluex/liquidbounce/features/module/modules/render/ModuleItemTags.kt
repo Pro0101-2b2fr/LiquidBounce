@@ -44,7 +44,6 @@ import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
 import net.ccbluex.liquidbounce.utils.item.COMPARING_DESCRIPTION_ID
 import net.ccbluex.liquidbounce.utils.item.PreferStackSize
 import net.ccbluex.liquidbounce.utils.kotlin.toTypedArray
-import net.ccbluex.liquidbounce.utils.math.average
 import net.ccbluex.liquidbounce.utils.math.sq
 import net.ccbluex.liquidbounce.utils.render.WorldToScreen
 import net.minecraft.core.component.DataComponents
@@ -234,9 +233,17 @@ object ModuleItemTags : ClientModule("ItemTags", ModuleCategories.RENDER) {
         @JvmField val scale: Float,
     ) {
         fun interpolateCurrentCenterPosition(tickDelta: Float): Vec3 {
-            return entities.map { entity ->
-                entity.interpolateCurrentPosition(tickDelta)
-            }.average()
+            var x = 0.0
+            var y = 0.0
+            var z = 0.0
+            for (entity in entities) {
+                val pos = entity.interpolateCurrentPosition(tickDelta)
+                x += pos.x
+                y += pos.y
+                z += pos.z
+            }
+            val size = entities.size.toDouble()
+            return Vec3(x / size, y / size, z / size)
         }
     }
 

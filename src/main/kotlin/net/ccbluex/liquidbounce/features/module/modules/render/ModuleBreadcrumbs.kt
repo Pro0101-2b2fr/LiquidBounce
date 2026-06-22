@@ -20,10 +20,8 @@ package net.ccbluex.liquidbounce.features.module.modules.render
 
 import com.mojang.blaze3d.vertex.VertexConsumer
 import it.unimi.dsi.fastutil.objects.ObjectFloatMutablePair
-import it.unimi.dsi.fastutil.objects.ObjectFloatPair
 import net.ccbluex.fastutil.component1
 import net.ccbluex.fastutil.component2
-import net.ccbluex.fastutil.mapToArray
 import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
@@ -149,6 +147,9 @@ object ModuleBreadcrumbs : ClientModule("Breadcrumbs", ModuleCategories.RENDER, 
 
         val positions = ArrayDeque<TrailPart>()
 
+        // Reusable buffer to avoid per-frame array + ObjectFloatMutablePair allocations
+        private var pointBuffer = emptyArray<ObjectFloatMutablePair<Vector3f>>()
+
         fun verifyAndRenderTrail(renderData: RenderData, cameraPos: Vec3, entity: Entity, time: Long) {
             val aliveDurationF = TemporaryValueGroup.alive.toFloat()
             val initialAlpha = renderData.color.w
@@ -167,8 +168,15 @@ object ModuleBreadcrumbs : ClientModule("Breadcrumbs", ModuleCategories.RENDER, 
                 return
             }
 
+            val size = positions.size
+            // Grow buffer if needed
+            if (pointBuffer.size < size) {
+                pointBuffer = Array(size) { ObjectFloatMutablePair.of(Vector3f(), 0f) }
+            }
+
             val shouldFade = TemporaryValueGroup.fade && TemporaryValueGroup.enabled
-            val pointsWithAlpha = positions.mapToArray { position ->
+            var idx = 0
+            for (position in positions) {
                 val alpha = if (shouldFade) {
                     val deltaTime = time - position.creationTime
                     val multiplier = (1F - deltaTime.toFloat() / aliveDurationF)
@@ -177,32 +185,37 @@ object ModuleBreadcrumbs : ClientModule("Breadcrumbs", ModuleCategories.RENDER, 
                     initialAlpha
                 }
 
-                val point = calculateRelativePos(cameraPos, position.pos)
-                ObjectFloatMutablePair.of(point, alpha)
+                val pair = pointBuffer[idx]
+                calculateRelativePos(cameraPos, position.pos, pair.left())
+                pair.right(alpha)
+                idx++
             }
 
             val interpolatedPos = entity.getPosition(mc.deltaTracker.getGameTimeDeltaPartialTick(true))
-            val point = calculateRelativePos(cameraPos, interpolatedPos)
-            pointsWithAlpha.last().left(point)
+            calculateRelativePos(cameraPos, interpolatedPos, pointBuffer[size - 1].left())
 
-            addVerticesToBuffer(renderData, pointsWithAlpha)
+            addVerticesToBuffer(renderData, pointBuffer, size)
         }
 
-        private fun calculateRelativePos(cameraPos: Vec3, pos: Vec3): Vector3f {
-            return Vector3f().set(
-                pos.x - cameraPos.x,
-                pos.y - cameraPos.y,
-                pos.z - cameraPos.z,
+        private fun calculateRelativePos(cameraPos: Vec3, pos: Vec3, out: Vector3f): Vector3f {
+            return out.set(
+                (pos.x - cameraPos.x).toFloat(),
+                (pos.y - cameraPos.y).toFloat(),
+                (pos.z - cameraPos.z).toFloat(),
             )
         }
 
-        private fun addVerticesToBuffer(renderData: RenderData, list: Array<out ObjectFloatPair<Vector3f>>) {
+        private fun addVerticesToBuffer(
+            renderData: RenderData,
+            list: Array<ObjectFloatMutablePair<Vector3f>>,
+            size: Int
+        ) {
             val red = renderData.color.x
             val green = renderData.color.y
             val blue = renderData.color.z
 
             with(renderData.bufferBuilder) {
-                for (i in 1..<list.size) {
+                for (i in 1 until size) {
                     val (v0, alpha0) = list[i]
                     val (v2, alpha2) = list[i - 1]
 

@@ -135,8 +135,7 @@ object ModuleDamageParticles : ClientModule("DamageParticles", ModuleCategories.
             return@handler
         }
 
-        val entities = world.entitiesForRendering()
-        for (entity in entities) {
+        for (entity in world.entitiesForRendering()) {
             if (entity !is LivingEntity || shouldNotTrack(entity)) {
                 continue
             }
@@ -149,7 +148,7 @@ object ModuleDamageParticles : ClientModule("DamageParticles", ModuleCategories.
             }
         }
 
-        entityHealthMap.keys.removeIf { it !in entities || it.isDeadOrDying }
+        entityHealthMap.keys.removeIf { it.isRemoved || it.isDeadOrDying }
     }
 
     @Suppress("unused")

@@ -378,8 +378,12 @@ object ModuleStorageESP : ClientModule("StorageESP", ModuleCategories.RENDER, al
                 val category = entity.categorize() ?: continue
                 if (!category.shouldRender(entity) || !category.tracers) continue
 
-                val pos = relativeToCamera(entity.interpolateCurrentPosition(event.partialTicks)).toVec3f()
-                val topPos = pos.add(0f, entity.bbHeight, 0f)
+                val rel = relativeToCamera(entity.interpolateCurrentPosition(event.partialTicks))
+                val rx = rel.x.toFloat()
+                val ry = rel.y.toFloat()
+                val rz = rel.z.toFloat()
+                val pos = Vec3f(rx, ry, rz)
+                val topPos = Vec3f(rx, ry + entity.bbHeight, rz)
 
                 drawLines(category.color.argb, eyeVector, pos, pos, topPos)
             }

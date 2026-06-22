@@ -18,7 +18,6 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.combat
 
-import net.ccbluex.fastutil.mapToArray
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.events.PacketEvent
@@ -221,18 +220,29 @@ internal object ModuleTickBase : ClientModule("TickBase", ModuleCategories.COMBA
         }
     }
 
+    // Reusable array for render positions — avoids allocation every frame
+    private var renderPositions = emptyArray<net.ccbluex.liquidbounce.render.engine.type.Vec3f>()
+
     @Suppress("unused")
     private val renderHandler = handler<WorldRenderEvent> { event ->
-        if (lineColor.a <= 0) {
+        if (lineColor.a <= 0 || tickBuffer.isEmpty()) {
             return@handler
         }
 
         renderEnvironmentForWorld(event.matrixStack) {
+            val size = tickBuffer.size
+            if (renderPositions.size != size) {
+                renderPositions = Array(size) { i ->
+                    relativeToCamera(tickBuffer[i].position).toVec3f()
+                }
+            } else {
+                for (i in 0 until size) {
+                    renderPositions[i] = relativeToCamera(tickBuffer[i].position).toVec3f()
+                }
+            }
             drawLineStrip(
                 argb = lineColor.argb,
-                positions = tickBuffer.mapToArray { tick ->
-                    relativeToCamera(tick.position).toVec3f()
-                }
+                positions = renderPositions
             )
         }
     }

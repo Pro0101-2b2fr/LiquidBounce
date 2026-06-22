@@ -37,7 +37,6 @@ import net.ccbluex.liquidbounce.utils.entity.RenderedEntities
 import net.ccbluex.liquidbounce.utils.entity.cameraDistanceSq
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
 import net.ccbluex.liquidbounce.utils.math.sq
-import net.ccbluex.liquidbounce.utils.math.toVec3f
 
 /**
  * Tracers module
@@ -91,8 +90,12 @@ object ModuleTracers : ClientModule("Tracers", ModuleCategories.RENDER) {
                     EntityTaggingManager.getTag(entity).color ?: modes.activeMode.getColor(entity)
                 }
 
-                val pos = relativeToCamera(entity.interpolateCurrentPosition(event.partialTicks)).toVec3f()
-                val topPos = pos.add(0f, entity.bbHeight, 0f)
+                val rel = relativeToCamera(entity.interpolateCurrentPosition(event.partialTicks))
+                val rx = rel.x.toFloat()
+                val ry = rel.y.toFloat()
+                val rz = rel.z.toFloat()
+                val pos = Vec3f(rx, ry, rz)
+                val topPos = Vec3f(rx, ry + entity.bbHeight, rz)
 
                 if (lineWidth == 1.0f) {
                     drawLines(color.argb, eyeVector, pos, pos, topPos)

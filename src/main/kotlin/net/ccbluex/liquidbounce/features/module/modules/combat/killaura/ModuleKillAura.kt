@@ -317,11 +317,21 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         val squaredMaxRange = maximumRange.sq()
         val squaredNormalRange = range.interactionRange.sq()
 
-        // Find a suitable target
-        val target = targetTracker.targets()
-            .filter { entity -> entity.squaredBoxedDistanceTo(player) <= squaredMaxRange }
-            .sortedBy { entity -> if (entity.squaredBoxedDistanceTo(player) <= squaredNormalRange) 0 else 1 }
-            .firstOrNull { entity -> processTarget(entity, maximumRange, range.interactionThroughWallsRange) }
+        // Single-pass target selection: prioritize in-range targets, avoid intermediate lists
+        var target: LivingEntity? = null
+        var targetIsInNormalRange = false
+        for (entity in targetTracker.targets()) {
+            val distSq = entity.squaredBoxedDistanceTo(player)
+            if (distSq > squaredMaxRange) continue
+            val inNormalRange = distSq <= squaredNormalRange
+            // Skip out-of-normal-range candidates if we already have one in normal range
+            if (targetIsInNormalRange && !inNormalRange) continue
+            if (processTarget(entity, maximumRange, range.interactionThroughWallsRange)) {
+                target = entity
+                targetIsInNormalRange = inNormalRange
+                if (inNormalRange) break // Best possible: in range and valid
+            }
+        }
 
         if (target != null) {
             targetTracker.target = target

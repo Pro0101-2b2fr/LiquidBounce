@@ -37,7 +37,6 @@ import net.ccbluex.liquidbounce.utils.block.hole.HoleTracker
 import net.ccbluex.liquidbounce.utils.math.box
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
-import net.minecraft.world.phys.Vec3
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -165,9 +164,12 @@ object ModuleHoleESP : ClientModule("HoleESP", ModuleCategories.RENDER), HoleMan
             return 1f
         }
 
-        val verticalDistanceFraction = (player.position().y - pos.y) / verticalDistance
+        val playerPos = player.position()
+        val verticalDistanceFraction = (playerPos.y - pos.y) / verticalDistance
+        val dx = playerPos.x - pos.x
+        val dz = playerPos.z - pos.z
         val horizontalDistanceFraction =
-            Vec3(player.position().x - pos.x, 0.0, player.position().z - pos.z).length() / horizontalDistance
+            Math.sqrt(dx * dx + dz * dz) / horizontalDistance
 
         val fade = (1 - max(verticalDistanceFraction, horizontalDistanceFraction)) / distanceFade
 
