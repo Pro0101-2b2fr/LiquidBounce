@@ -24,12 +24,14 @@
     const path = `clickgui.${name}`;
     let expanded = false;
     let hasSettings = false;
+    let settingsLoaded = false;
 
-    onMount(async () => {
-        await fetchModuleSettings();
-
+    onMount(() => {
         setTimeout(() => {
-            expanded = localStorage.getItem(path) === "true"
+            expanded = localStorage.getItem(path) === "true";
+            if (expanded) {
+                fetchModuleSettings();
+            }
         }, 500);
     });
 
@@ -52,6 +54,7 @@
     async function fetchModuleSettings() {
         configurable = await getModuleSettings(name);
         hasSettings = configurable.value.filter(v => v.name !== "Bind" && v.name !== "Hidden").length > 0;
+        settingsLoaded = true;
     }
 
     async function updateModuleSettings() {
@@ -97,6 +100,9 @@
 
     async function toggleExpanded() {
         expanded = !expanded;
+        if (expanded && !settingsLoaded) {
+            await fetchModuleSettings();
+        }
         await setItem(path, expanded.toString());
     }
 </script>
@@ -106,8 +112,8 @@
         class="module"
         class:expanded
         class:has-settings={hasSettings}
-        in:slide={{ duration: 500, easing: quintOut }}
-        out:slide={{ duration: 500, easing: quintOut }}
+        in:slide={{ duration: 200, easing: quintOut }}
+        out:slide={{ duration: 200, easing: quintOut }}
 >
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div

@@ -36,7 +36,7 @@ export async function updatePersistentData() {
         }
 
         await setPersistentStorageItems(items);
-    }, 200);
+    }, 1000);
 }
 
 export async function setItem(name: string, value: string) {
