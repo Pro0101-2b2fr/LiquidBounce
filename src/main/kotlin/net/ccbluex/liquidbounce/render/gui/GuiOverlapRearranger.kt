@@ -28,14 +28,32 @@ class GuiOverlapRearranger(
         require(maxIter > 0) { "maxIter must be greater than zero." }
     }
 
+    /**
+     * Reusable scratch array to avoid allocating a new array every frame.
+     */
+    private var scratch = arrayOfNulls<GuiRearrangeable>(16)
+
     @Suppress("NestedBlockDepth", "CognitiveComplexMethod")
     fun rearrange(elements: Collection<GuiRearrangeable>) {
-        if (elements.size <= 1) {
+        val size = elements.size
+        if (size <= 1) {
             return
         }
 
-        val sorted = elements.toTypedArray()
-        sorted.sortWith { a, b ->
+        // Grow scratch if needed, reuse otherwise
+        if (scratch.size < size) {
+            scratch = arrayOfNulls(size)
+        }
+        var idx = 0
+        for (e in elements) {
+            scratch[idx++] = e
+        }
+
+        // Sort in-place on scratch[0..size)
+        @Suppress("UNCHECKED_CAST")
+        java.util.Arrays.sort(scratch, 0, size) { a, b ->
+            a as GuiRearrangeable
+            b as GuiRearrangeable
             val ay = a.bounds.yCenter
             val by = b.bounds.yCenter
             when {
@@ -48,10 +66,10 @@ class GuiOverlapRearranger(
         while (iter++ < maxIter) {
             var moved = false
 
-            for (i in 0 until sorted.size) {
-                for (j in i + 1 until sorted.size) {
-                    val a = sorted[i]
-                    val b = sorted[j]
+            for (i in 0 until size) {
+                for (j in i + 1 until size) {
+                    val a = scratch[i]!!
+                    val b = scratch[j]!!
                     val aBounds = a.bounds
                     val bBounds = b.bounds
 
@@ -76,6 +94,11 @@ class GuiOverlapRearranger(
             if (!moved) {
                 break
             }
+        }
+
+        // Clear references to avoid leaking (scratch may outlive the frame)
+        for (i in 0 until size) {
+            scratch[i] = null
         }
     }
 }

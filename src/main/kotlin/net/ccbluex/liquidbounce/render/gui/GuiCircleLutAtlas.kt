@@ -102,11 +102,9 @@ object GuiCircleLutAtlas {
         val oldTexture = texture
         val oldPixels = pixels
         val newPixels = NativeImage(LUT_WIDTH, newRows, false)
-        for (y in 0 until oldRows) {
-            for (x in 0 until LUT_WIDTH) {
-                newPixels.setPixel(x, y, oldPixels.getPixel(x, y))
-            }
-        }
+
+        // Bulk copy old rows using copyRect (much faster than pixel-by-pixel)
+        newPixels.copyRect(oldPixels, 0, 0, 0, 0, LUT_WIDTH, oldRows, false, false)
 
         texture = DynamicTexture(
             { "GuiCircleLutAtlas ${LUT_WIDTH}x$newRows" },

@@ -174,6 +174,12 @@ object MinimapHudComponent : NativeHudComponent("Minimap", false, Alignment(
         registerComponentListen(this)
     }
 
+    /**
+     * Pre-allocated line buffer for border/cursor drawing (12 line endpoints × 2 floats = 24).
+     * Avoids a floatArrayOf allocation every single frame.
+     */
+    private val lineBuffer = FloatArray(24)
+
     val renderHandler = handler<OverlayRenderEvent>(priority = EventPriorityConvention.MODEL_STATE) { event ->
         if (HideAppearance.isHidingNow) {
             return@handler
@@ -186,10 +192,8 @@ object MinimapHudComponent : NativeHudComponent("Minimap", false, Alignment(
 
         val boundingBox = alignment.getBounds(minimapSize.toFloat(), minimapSize.toFloat())
 
-        val centerBB = Vec2(
-            boundingBox.xMin + (boundingBox.xMax - boundingBox.xMin) * 0.5F,
-            boundingBox.yMin + (boundingBox.yMax - boundingBox.yMin) * 0.5F
-        )
+        val centerX = boundingBox.xMin + (boundingBox.xMax - boundingBox.xMin) * 0.5F
+        val centerY = boundingBox.yMin + (boundingBox.yMax - boundingBox.yMin) * 0.5F
 
         val baseX = (playerPos.x / 16.0).toInt()
         val baseZ = (playerPos.z / 16.0).toInt()
@@ -218,6 +222,8 @@ object MinimapHudComponent : NativeHudComponent("Minimap", false, Alignment(
                 }
             }
 
+            val centerBB = Vec2(centerX, centerY)
+
             drawOutOfBoundsEntityMarkers(
                 tickDelta = event.tickDelta,
                 center = centerBB,
@@ -233,28 +239,24 @@ object MinimapHudComponent : NativeHudComponent("Minimap", false, Alignment(
                 element.render(this, boundingBox)
             }
 
-            val from = Color4b.DEFAULT_BG_COLOR
-            val to = Color4b.TRANSPARENT
+            drawShadowForBB(boundingBox, bounds, Color4b.DEFAULT_BG_COLOR, Color4b.TRANSPARENT)
 
-            drawShadowForBB(boundingBox, bounds, from, to)
-
-            val lines = floatArrayOf(
-                // Cursor
-                boundingBox.xMin, centerBB.y,
-                boundingBox.xMax, centerBB.y,
-                centerBB.x, boundingBox.yMin,
-                centerBB.x, boundingBox.yMax,
-                // Border
-                boundingBox.xMin, boundingBox.yMin,
-                boundingBox.xMax, boundingBox.yMin,
-                boundingBox.xMin, boundingBox.yMax,
-                boundingBox.xMax, boundingBox.yMax,
-
-                boundingBox.xMin, boundingBox.yMin,
-                boundingBox.xMin, boundingBox.yMax,
-                boundingBox.xMax, boundingBox.yMin,
-                boundingBox.xMax, boundingBox.yMax,
-            )
+            // Fill pre-allocated line buffer instead of allocating a new floatArrayOf each frame
+            val lines = lineBuffer
+            // Cursor
+            lines[0] = boundingBox.xMin; lines[1] = centerY
+            lines[2] = boundingBox.xMax; lines[3] = centerY
+            lines[4] = centerX; lines[5] = boundingBox.yMin
+            lines[6] = centerX; lines[7] = boundingBox.yMax
+            // Border
+            lines[8] = boundingBox.xMin; lines[9] = boundingBox.yMin
+            lines[10] = boundingBox.xMax; lines[11] = boundingBox.yMin
+            lines[12] = boundingBox.xMin; lines[13] = boundingBox.yMax
+            lines[14] = boundingBox.xMax; lines[15] = boundingBox.yMax
+            lines[16] = boundingBox.xMin; lines[17] = boundingBox.yMin
+            lines[18] = boundingBox.xMin; lines[19] = boundingBox.yMax
+            lines[20] = boundingBox.xMax; lines[21] = boundingBox.yMin
+            lines[22] = boundingBox.xMax; lines[23] = boundingBox.yMax
 
             drawLines(lines, Color4b.WHITE.argb, bounds)
         }
@@ -347,6 +349,16 @@ object MinimapHudComponent : NativeHudComponent("Minimap", false, Alignment(
         }
     }
 
+    /**
+     * Pre-computed triangle vertices for entity rendering on the minimap.
+     * Avoids allocating 3 Vec2 objects per entity per frame.
+     */
+    private val ENTITY_TRI_W = 2.0f
+    private val ENTITY_TRI_H = ENTITY_TRI_W * 1.618f
+    private val ENTITY_P1 = Vec2(-ENTITY_TRI_W * 0.5f / 16.0f, -ENTITY_TRI_H * 0.5f / 16.0f)
+    private val ENTITY_P2 = Vec2(0.0f, ENTITY_TRI_H * 0.5f / 16.0f)
+    private val ENTITY_P3 = Vec2(ENTITY_TRI_W * 0.5f / 16.0f, -ENTITY_TRI_H * 0.5f / 16.0f)
+
     private fun GuiGraphicsExtractor.drawEntities(
         tickDelta: Float,
         baseX: Float,
@@ -367,31 +379,24 @@ object MinimapHudComponent : NativeHudComponent("Minimap", false, Alignment(
             pose().rotate(rot.yaw.toRadians())
             pose().scale(EntityValueGroup.scale)
 
-            val w = 2.0f
-            val h = w * 1.618f
-
-            val p1 = Vec2(-w * 0.5f / 16.0f, -h * 0.5f / 16.0f)
-            val p2 = Vec2(0.0f, h * 0.5f / 16.0f)
-            val p3 = Vec2(w * 0.5f / 16.0f, -h * 0.5f / 16.0f)
-
             pose().pushMatrix()
 
             pose().translate(
-                -w / 5.0F * ChunkRenderer.SUN_DIRECTION.x() / 16.0F,
-                -w / 5.0F * ChunkRenderer.SUN_DIRECTION.y() / 16.0F,
+                -ENTITY_TRI_W / 5.0F * ChunkRenderer.SUN_DIRECTION.x() / 16.0F,
+                -ENTITY_TRI_W / 5.0F * ChunkRenderer.SUN_DIRECTION.y() / 16.0F,
             )
 
             // Shadow
             drawTriangle(
-                p1,
-                p2,
-                p3,
+                ENTITY_P1,
+                ENTITY_P2,
+                ENTITY_P3,
                 Color4b((color.r * 0.1).toInt(), (color.g * 0.1).toInt(), (color.b * 0.1).toInt(), 200)
             )
             pose().popMatrix()
 
             // Entity
-            drawTriangle(p1, p2, p3, color)
+            drawTriangle(ENTITY_P1, ENTITY_P2, ENTITY_P3, color)
 
             pose().popMatrix()
         }

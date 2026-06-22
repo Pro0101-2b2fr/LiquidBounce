@@ -140,8 +140,9 @@ object ModuleClickGui :
 
     @Suppress("unused")
     private val tickHandler = handler<GameTickEvent> {
-        // For some reason, we actually need this.
-        standaloneScreen?.browser?.visible = mc.screen == standaloneScreen
+        val screen = standaloneScreen ?: return@handler
+        // Only update visibility when ClickGUI is actually cached
+        screen.browser?.visible = mc.screen == screen
     }
 
     fun updateStandaloneScreen(): Boolean {

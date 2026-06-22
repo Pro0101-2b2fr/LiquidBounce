@@ -245,11 +245,28 @@ object ScreenManager : EventListener {
         handleCurrentScreen(mc.screen)
     }
 
+    /**
+     * Cached effect state from the previous tick to avoid creating a new list every tick
+     * when nothing has changed. We compare size + hashCode as a cheap change-detection heuristic.
+     */
+    private var lastEffectHash = 0
+    private var lastEffectSize = 0
+
     @Suppress("unused")
     private val effectUpdateHandler = handler<GameTickEvent> {
         val player = mc.player ?: return@handler
-        if (player.activeEffects.isNotEmpty()) {
-            EventManager.callEvent(ClientPlayerEffectEvent(player.activeEffects.toList()))
+        val effects = player.activeEffects
+        if (effects.isNotEmpty()) {
+            val size = effects.size
+            val hash = effects.hashCode()
+            if (size != lastEffectSize || hash != lastEffectHash) {
+                lastEffectSize = size
+                lastEffectHash = hash
+                EventManager.callEvent(ClientPlayerEffectEvent(effects.toList()))
+            }
+        } else if (lastEffectSize != 0) {
+            lastEffectSize = 0
+            lastEffectHash = 0
         }
     }
 
