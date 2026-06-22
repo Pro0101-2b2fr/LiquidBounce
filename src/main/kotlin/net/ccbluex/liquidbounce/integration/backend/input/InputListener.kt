@@ -21,6 +21,7 @@ package net.ccbluex.liquidbounce.integration.backend.input
 
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.EventManager
+import net.ccbluex.liquidbounce.event.events.FramebufferResizeEvent
 import net.ccbluex.liquidbounce.event.events.KeyboardCharEvent
 import net.ccbluex.liquidbounce.event.events.KeyboardKeyEvent
 import net.ccbluex.liquidbounce.event.events.MouseButtonEvent
@@ -29,8 +30,6 @@ import net.ccbluex.liquidbounce.event.events.MouseScrollEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.integration.backend.browser.Browser
 import net.ccbluex.liquidbounce.utils.client.mc
-import org.joml.component1
-import org.joml.component2
 import org.lwjgl.glfw.GLFW
 import java.lang.AutoCloseable
 
@@ -48,6 +47,23 @@ class InputListener(
     private var mouseX: Double = 0.0
     private var mouseY: Double = 0.0
 
+    // Cache framebuffer-to-screen scale factors — only changes on window/framebuffer resize.
+    // Avoids 2 double divisions per MouseCursorEvent (~60+ Hz).
+    private var factorW: Double = computeFactorW()
+    private var factorH: Double = computeFactorH()
+
+    private fun computeFactorW(): Double =
+        mc.window.width.toDouble() / mc.window.screenWidth.toDouble()
+
+    private fun computeFactorH(): Double =
+        mc.window.height.toDouble() / mc.window.screenHeight.toDouble()
+
+    @Suppress("unused")
+    private val framebufferResizeHandler = handler<FramebufferResizeEvent> {
+        factorW = computeFactorW()
+        factorH = computeFactorH()
+    }
+
     @Suppress("unused")
     private val mouseButtonHandler = handler<MouseButtonEvent> { event ->
         if (!acceptor.acceptsInput()) {
@@ -55,10 +71,12 @@ class InputListener(
         }
 
         if (event.action == GLFW.GLFW_PRESS) {
-            val (transformedX, transformedY) = browser.viewport.transform(mouseX, mouseY)
+            val transformedX = mouseX - browser.viewport.x
+            val transformedY = mouseY - browser.viewport.y
             inputHandler.mouseClicked(transformedX, transformedY, event.button)
         } else if (event.action == GLFW.GLFW_RELEASE) {
-            val (transformedX, transformedY) = browser.viewport.transform(mouseX, mouseY)
+            val transformedX = mouseX - browser.viewport.x
+            val transformedY = mouseY - browser.viewport.y
             inputHandler.mouseReleased(transformedX, transformedY, event.button)
         }
     }
@@ -69,24 +87,19 @@ class InputListener(
             return@handler
         }
 
-        val (transformedX, transformedY) = browser.viewport.transform(mouseX, mouseY)
+        val transformedX = mouseX - browser.viewport.x
+        val transformedY = mouseY - browser.viewport.y
         inputHandler.mouseScrolled(transformedX, transformedY, event.vertical)
     }
 
     @Suppress("unused")
     private val mouseCursorHandler = handler<MouseCursorEvent> { event ->
-        val framebufferWidth = mc.window.width.toDouble()
-        val framebufferHeight = mc.window.height.toDouble()
-        val windowWidth = mc.window.screenWidth.toDouble()
-        val windowHeight = mc.window.screenHeight.toDouble()
-
-        val factorW = framebufferWidth / windowWidth
-        val factorV = framebufferHeight / windowHeight
         val mouseX = event.x * factorW
-        val mouseY = event.y * factorV
+        val mouseY = event.y * factorH
 
         if (acceptor.acceptsInput()) {
-            val (transformedX, transformedY) = browser.viewport.transform(mouseX, mouseY)
+            val transformedX = mouseX - browser.viewport.x
+            val transformedY = mouseY - browser.viewport.y
             inputHandler.mouseMoved(transformedX, transformedY)
         }
 

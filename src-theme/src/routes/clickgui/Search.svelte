@@ -10,6 +10,11 @@
 
     export let modules: Module[];
 
+    interface SearchableModule extends Module {
+        _lowerName: string;
+        _lowerAliases: string[];
+    }
+
     let resultElements: HTMLElement[] = [];
     let searchContainerElement: HTMLElement;
     let autoFocus: boolean = true
@@ -18,6 +23,13 @@
     let filteredModules: Module[] = [];
     let selectedIndex = 0;
     let hasFocus = false;
+    let searchableModules: SearchableModule[] = [];
+
+    $: searchableModules = modules.map(m => ({
+        ...m,
+        _lowerName: m.name.toLowerCase(),
+        _lowerAliases: m.aliases.map(a => a.toLowerCase())
+    }));
 
     function reset() {
         filteredModules = [];
@@ -37,8 +49,8 @@
 
         const pureQuery = query.toLowerCase().replaceAll(" ", "");
 
-        filteredModules = modules.filter((m) => m.name.toLowerCase().includes(pureQuery)
-            || m.aliases.some(a => a.toLowerCase().includes(pureQuery))
+        filteredModules = searchableModules.filter((m) => m._lowerName.includes(pureQuery)
+            || m._lowerAliases.some(a => a.includes(pureQuery))
         );
     }
 
