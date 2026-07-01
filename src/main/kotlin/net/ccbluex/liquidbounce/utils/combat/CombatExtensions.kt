@@ -269,7 +269,6 @@ fun attackEntity(entity: Entity, swing: SwingMode, keepSprint: Boolean = false) 
         network.send(ServerboundAttackPacket(entity.id))
 
         // Fire post-attack event for modules that need to act after the attack packet
-        // (e.g., knockback displacement return rotation)
         EventManager.callEvent(PostAttackEntityEvent(entity))
 
         if (keepSprint) {
